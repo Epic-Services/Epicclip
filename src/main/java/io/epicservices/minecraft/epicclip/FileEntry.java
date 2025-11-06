@@ -1,4 +1,4 @@
-package io.papermc.paperclip;
+package io.epicservices.minecraft.epicclip;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -100,9 +100,10 @@ record FileEntry(byte[] hash, String id, String path) {
         }
 
         if (!Util.isFileValid(outputFile, this.hash)) {
-            throw new IllegalStateException("Hash check failed for extract filed " + outputFile);
+            throw new IllegalStateException("Hash check failed for extracted file " + outputFile);
         }
 
         urls.put(this.path, outputFile.toUri().toURL());
     }
 }
+

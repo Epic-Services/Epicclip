@@ -1,4 +1,4 @@
-package io.papermc.paperclip;
+package io.epicservices.minecraft.epicclip;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +15,7 @@ class Util {
 
     private Util() {}
 
-    public static MessageDigest sha256Digest = getSha256Digest();
+    private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(Util::getSha256Digest);
 
     private static MessageDigest getSha256Digest() {
         try {
@@ -51,12 +51,7 @@ class Util {
     }
 
     static String readResourceText(final String path) throws IOException {
-        final String p;
-        if (path.startsWith("/")) {
-            p = path;
-        } else {
-            p = "/" + path;
-        }
+        final String p = path.startsWith("/") ? path : "/" + path;
         final InputStream stream = Util.class.getResourceAsStream(p);
         if (stream == null) {
             return null;
@@ -72,7 +67,7 @@ class Util {
     }
 
     static boolean isDataValid(final byte[] data, final byte[] hash) {
-        return Arrays.equals(hash, sha256Digest.digest(data));
+        return Arrays.equals(hash, SHA_256.get().digest(data));
     }
     static boolean isFileValid(final Path file, final byte[] hash) {
         if (Files.exists(file)) {
@@ -129,3 +124,4 @@ class Util {
         return dir + "/";
     }
 }
+

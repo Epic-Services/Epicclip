@@ -1,4 +1,4 @@
-package io.papermc.paperclip;
+package io.epicservices.minecraft.epicclip;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,23 +12,30 @@ import java.net.URLClassLoader;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public final class Paperclip {
+public final class Epicclip {
 
     public static void main(final String[] args) {
         if (Path.of("").toAbsolutePath().toString().contains("!")) {
-            System.err.println("Paperclip may not run in a directory containing '!'. Please rename the affected folder.");
+            System.err.println("Epicclip may not run in a directory containing '!'. Please rename the affected folder.");
             System.exit(1);
         }
 
         final URL[] classpathUrls = setupClasspath();
 
-        final ClassLoader parentClassLoader = Paperclip.class.getClassLoader().getParent();
+        final ClassLoader parentClassLoader = Epicclip.class.getClassLoader().getParent();
         final URLClassLoader classLoader = new URLClassLoader(classpathUrls, parentClassLoader);
+
+        // Ensure the classloader is closed on JVM shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                classLoader.close();
+            } catch (IOException ignored) {
+            }
+        }, "Epicclip-ClassLoader-Close"));
 
         final String mainClassName = findMainClass();
         System.out.println("Starting " + mainClassName);
@@ -71,8 +78,8 @@ public final class Paperclip {
 
         final Map<String, Map<String, URL>> classpathUrls = extractAndApplyPatches(baseFile, patches, repoDir);
 
-        // Exit if user has set `paperclip.patchonly` system property to `true`
-        if (Boolean.getBoolean("paperclip.patchonly")) {
+        // Exit if user has set patch-only system property
+        if (Boolean.getBoolean("epicclip.patchonly") || Boolean.getBoolean("paperclip.patchonly")) {
             System.exit(0);
         }
 
@@ -89,7 +96,7 @@ public final class Paperclip {
     }
 
     private static PatchEntry[] findPatches() {
-        final InputStream patchListStream = Paperclip.class.getResourceAsStream("/META-INF/patches.list");
+        final InputStream patchListStream = Epicclip.class.getResourceAsStream("/META-INF/patches.list");
         if (patchListStream == null) {
             return new PatchEntry[0];
         }
@@ -119,7 +126,7 @@ public final class Paperclip {
         return findFileEntries("libraries.list");
     }
     private static FileEntry[] findFileEntries(final String fileName) {
-        final InputStream libListStream = Paperclip.class.getResourceAsStream("/META-INF/" + fileName);
+        final InputStream libListStream = Epicclip.class.getResourceAsStream("/META-INF/" + fileName);
         if (libListStream == null) {
             return null;
         }
@@ -242,3 +249,4 @@ public final class Paperclip {
         }
     }
 }
+

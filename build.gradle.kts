@@ -2,54 +2,88 @@ plugins {
     java
     application
     `maven-publish`
+    id("com.gradleup.shadow") version "9.0.0"
 }
 
-subprojects {
-    apply(plugin = "java")
-
-    tasks.withType<JavaCompile>().configureEach {
-        options.encoding = "UTF-8"
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
+    withSourcesJar()
 }
 
-val mainClass = "io.papermc.paperclip.Main"
+repositories {
+    mavenCentral()
+}
 
-tasks.jar {
-    val java6Jar = project(":java6").tasks.named("jar")
-    val java17Jar = project(":java17").tasks.named("shadowJar")
-    dependsOn(java6Jar, java17Jar)
+dependencies {
+    implementation("io.sigpipe:jbsdiff:1.0")
 
-    from(zipTree(java6Jar.map { it.outputs.files.singleFile }))
-    from(zipTree(java17Jar.map { it.outputs.files.singleFile }))
-
-    manifest {
-        attributes(
-            "Main-Class" to mainClass
-        )
-    }
-
-    from(file("license.txt")) {
-        into("META-INF/license")
-        rename { "paperclip-LICENSE.txt" }
-    }
-    rename { name ->
-        if (name.endsWith("-LICENSE.txt")) {
-            "META-INF/license/$name"
-        } else {
-            name
+    constraints {
+        implementation("org.apache.commons:commons-compress:1.26.2") {
+            because("Mitigates CVEs in older transitive versions: CVE-2024-25710, CVE-2021-35517, CVE-2021-36090")
         }
     }
 }
 
-val sourcesJar by tasks.registering(Jar::class) {
-    val java6Sources = project(":java6").tasks.named("sourcesJar")
-    val java17Sources = project(":java17").tasks.named("sourcesJar")
-    dependsOn(java6Sources, java17Sources)
+// Compile-Optionen
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(21)
+}
 
-    from(zipTree(java6Sources.map { it.outputs.files.singleFile }))
-    from(zipTree(java17Sources.map { it.outputs.files.singleFile }))
+// Reproducible archives across machines/builds
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
 
-    archiveClassifier.set("sources")
+val appMainClass = "io.epicservices.minecraft.epicclip.Epicclip"
+
+application {
+    mainClass.set(appMainClass)
+}
+
+// Standard-JAR deaktivieren, Shadow-JAR wird das Hauptartefakt
+tasks.jar {
+    enabled = false
+}
+
+// Shaded/Relocated Jar erzeugen und als Hauptartefakt verwenden
+val shadowJarProvider = tasks.named("shadowJar")
+
+tasks.shadowJar {
+    archiveClassifier.set("")
+
+    val prefix = "epicclip.libs"
+    listOf("org.apache", "org.tukaani", "io.sigpipe").forEach { pack ->
+        relocate(pack, "$prefix.$pack")
+    }
+
+    manifest {
+        attributes("Main-Class" to appMainClass)
+    }
+
+    // Lizenz-Datei in META-INF aufnehmen
+    from(file("license.txt")) {
+        into("META-INF/license")
+        rename { "epicclip-LICENSE.txt" }
+    }
+
+    // einige META-INF aus Dependencies ausschließen
+    exclude("META-INF/LICENSE.txt")
+    exclude("META-INF/NOTICE.txt")
+}
+
+// Application/Distribution-Tasks explizit vom Shadow-JAR abhängig machen
+tasks.named<org.gradle.jvm.application.tasks.CreateStartScripts>("startScripts") {
+    dependsOn(shadowJarProvider)
+}
+tasks.named<org.gradle.api.tasks.bundling.Zip>("distZip") {
+    dependsOn(shadowJarProvider)
+}
+tasks.named<org.gradle.api.tasks.bundling.Tar>("distTar") {
+    dependsOn(shadowJarProvider)
 }
 
 val isSnapshot = project.version.toString().endsWith("-SNAPSHOT")
@@ -61,15 +95,17 @@ publishing {
             artifactId = project.name
             version = project.version.toString()
 
-            from(components["java"])
-            artifact(sourcesJar)
+            // Veröffentliche das Shadow-JAR als Hauptartefakt
+            artifact(shadowJarProvider)
+            // und die Quellen
+            artifact(tasks.named("sourcesJar"))
             withoutBuildIdentifier()
 
             pom {
-                val repoPath = "PaperMC/Paperclip"
+                val repoPath = "Epic-Services/Epicclip"
                 val repoUrl = "https://github.com/$repoPath"
 
-                name.set("Paperclip")
+                name.set("Epicclip")
                 description.set(project.description)
                 url.set(repoUrl)
                 packaging = "jar"
@@ -89,10 +125,10 @@ publishing {
 
                 developers {
                     developer {
-                        id.set("DemonWav")
-                        name.set("Kyle Wood")
-                        email.set("demonwav@gmail.com")
-                        url.set("https://github.com/DemonWav")
+                        id.set("30TageBan")
+                        name.set("Chris Gewald")
+                        email.set("chrisgewald@gmail.com")
+                        url.set("https://github.com/30TageBan")
                     }
                 }
 
@@ -106,14 +142,14 @@ publishing {
 
         repositories {
             val url = if (isSnapshot) {
-                "https://repo.papermc.io/repository/maven-snapshots/"
+                "https://repo.epic-services.io/repository/maven-snapshots/"
             } else {
-                "https://repo.papermc.io/repository/maven-releases/"
+                "https://repo.epic-services.io/repository/maven-releases/"
             }
 
             maven(url) {
                 credentials(PasswordCredentials::class)
-                name = "paper"
+                name = "epic"
             }
         }
     }

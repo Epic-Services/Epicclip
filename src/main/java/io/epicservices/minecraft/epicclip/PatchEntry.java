@@ -7,7 +7,7 @@
  * MIT License
  */
 
-package io.papermc.paperclip;
+package io.epicservices.minecraft.epicclip;
 
 import io.sigpipe.jbsdiff.InvalidHeaderException;
 import io.sigpipe.jbsdiff.Patch;
@@ -149,3 +149,4 @@ record PatchEntry(
         urls.get(this.location).put(this.originalPath, outputFile.toUri().toURL());
     }
 }
+
