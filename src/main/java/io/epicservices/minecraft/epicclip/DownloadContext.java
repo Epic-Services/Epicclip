@@ -17,8 +17,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 record DownloadContext(byte[] hash, URL url, String fileName) {
 
   public Path getOutputFile(final Path outputDir) {
-    final Path cacheDir = outputDir.resolve("cache");
-    return cacheDir.resolve(this.fileName);
+    return outputDir.resolve(this.fileName);
   }
 
   public static DownloadContext parseLine(final String line) {
